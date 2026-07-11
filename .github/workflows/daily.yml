@@ -1,12 +1,12 @@
-name: Daily Anime News
+name: Daily Anime Post
 on:
   schedule:
-    # ئەمە وا دەکات هەموو ڕۆژێک کاتژمێر ٨:٠٠ی بەیانی بە کاتی UTC (١١ بەیانی کوردستان) کار بکات
+    # هەموو ڕۆژێک کاتژمێر ١١:٠٠ی بەیانی بە کاتی کوردستان (08:00 UTC)
     - cron: '0 8 * * *'
-  workflow_dispatch: # ئەمە بۆ ئەوەیە بتوانیت بە دەستیش تاقی بکەیتەوە
+  workflow_dispatch: # بۆ ئەوەی بتوانیت خۆت تاقی بکەیتەوە بە دەست
 
 jobs:
-  build:
+  run-bot:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
@@ -15,8 +15,8 @@ jobs:
         with:
           python_version: '3.9'
       - name: Install dependencies
-        run: pip install requests
-      - name: Run Bot
+        run: pip install -r requirements.txt
+      - name: Run Python Script
         env:
           BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
           CHAT_ID: ${{ secrets.CHAT_ID }}
