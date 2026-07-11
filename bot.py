@@ -1,116 +1,108 @@
 import telebot
 import requests
-from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
+import os
+from telebot.types import ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardMarkup, InlineKeyboardButton
 
-# ================= زانیارییەکانی تۆ =================
-BOT_TOKEN = "8963794119:AAHntWTn_Rc_EUbgdhwaBYXwtwMqw_xiu2Q"
-CHANNEL_ID = "-1002127529797"
-GEMINI_API_KEY = "کلیلی_جیمینای_لێرە_دابنێ"
-ADMIN_ID = 123456789 # ئایدی تێلیگرامی خۆت لێرە دابنێ (لە @userinfobot وەریگرە)
-# ====================================================
+# ================= وەرگرتنی نهێنییەکان لە سێرڤەر/گیت هەب =================
+BOT_TOKEN = os.getenv("BOT_TOKEN")
+CHANNEL_ID = os.getenv("CHAT_ID")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+ADMIN_ID = os.getenv("ADMIN_ID") # ئایدی تێلیگرامی خۆت وەک سکرێت دابنێ
+# ==========================================================
 
 bot = telebot.TeleBot(BOT_TOKEN)
 
-# فەنکشنی پەیوەندیکردن بە جیمینای
+# دڵنیابوونەوە لەوەی هەموو نهێنییەکان هەن
+if not all([BOT_TOKEN, CHANNEL_ID, GEMINI_API_KEY, ADMIN_ID]):
+    print("❌ هەڵە: یەکێک لە نهێنییەکان (Secrets) لە گیت هەب دانەنراوە!")
+    exit()
+
+# گۆڕینی ئایدی ئەدمین بۆ ژمارە
+ADMIN_ID = int(ADMIN_ID)
+
+# ================= فەنکشنی زیرەکی دەستکرد =================
 def format_with_gemini(raw_data, post_type):
     url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={GEMINI_API_KEY}"
     
     if post_type == "search":
-        prompt = f"""تۆ ڕۆژنامەنووسێکی کەناڵی 'KURD FOREST'یت. 
-پابەند بە بەم مەرجانەوە:
-1. زانیارییەکان لە خۆتەوە مەهێنە، تەنها ئەم زانیارییانە بەکاربهێنە کە پێت دەدەم.
-2. بە زمانی کوردی سۆرانییەکی زۆر پڕۆفیشناڵ و جوان بینووسە.
-3. ئیمۆجی گونجاو بەکاربهێنە.
-4. با ڕۆژ و کاتی پەخشکردنەکە بە ڕوونی دیار بێت.
-5. لە کۆتایی بنووسە 🌳 @KURD_FOREST
-
-زانیارییەکان (دروستکراوی MyAnimeList):
-{raw_data}"""
+        prompt = f"تۆ ئەدمینی KURD FORESTیت. ئەم زانیارییە فەرمییانەی خوارەوە بە کوردییەکی سۆرانی شاز و پڕۆفیشناڵ دابڕێژەوە. کورت و پوخت بێت و ئیمۆجی بەکاربهێنە. لە کۆتایی بنووسە @KURD_FOREST.\n\n{raw_data}"
     else:
-        prompt = f"ئەمە هەواڵی ئەمڕۆیە، بیکە بە پۆستێکی کوردی شاز بۆ کەناڵی KURD FOREST بە هەمان مەرجەکانی پێشوو:\n{raw_data}"
+        prompt = f"ئەمە خشتەی ئەنیمێکانی ئەمڕۆیە. بە کوردییەکی زۆر جوان و ئیمۆجییەوە ڕێکی بخە بۆ کەناڵی KURD FOREST. لە کۆتایی بنووسە @KURD_FOREST.\n\n{raw_data}"
 
     payload = {"contents": [{"parts": [{"text": prompt}]}]}
     try:
         response = requests.post(url, json=payload).json()
         return response['candidates'][0]['content']['parts'][0]['text']
-    except Exception as e:
-        return "❌ هەڵە لە دروستکردنی دەقەکە ڕوویدا."
+    except:
+        return "❌ هەڵە لە دروستکردنی دەقەکە."
 
-# دڵنیابوونەوە لەوەی تەنها ئەدمین دەتوانێت فەرمان بدات
-def is_admin(message):
-    return message.chat.id == ADMIN_ID
+# ================= مینۆی سەرەکی =================
+def main_menu():
+    markup = ReplyKeyboardMarkup(resize_keyboard=True, row_width=2)
+    markup.add(KeyboardButton("🔍 گەڕان بەدوای ئەنیمێ"), KeyboardButton("📅 خشتەی ئەمڕۆ"))
+    markup.add(KeyboardButton("📖 ڕێنمایی بەکارهێنان"))
+    return markup
 
-# ١. فەرمانی ستارت
+# ================= فەرمانەکان =================
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
-    if not is_admin(message): return
-    text = """👋 سڵاو گەورەم! بەخێربێیت بۆ سیستەمی بەڕێوەبردنی KURD FOREST.
-    
-فەرمانەکان:
-/anime [ناوی ئەنیمێ] 👈 بۆ دۆزینەوەی زانیاری و کاتی پەخشی هەر ئەنیمێیەک.
-/daily 👈 بۆ ئامادەکردنی پۆستی هەواڵەکانی ئەمڕۆ."""
-    bot.reply_to(message, text)
+    if message.chat.id != ADMIN_ID: return
+    bot.send_message(message.chat.id, "🌳 بەخێربێیت بۆ پانێڵی بەڕێوەبردنی KURD FOREST\nتکایە هەڵبژێرە:", reply_markup=main_menu())
 
-# ٢. فەرمانی گەڕان بەدوای ئەنیمێ و کاتی پەخش
-@bot.message_handler(commands=['anime'])
-def search_anime(message):
-    if not is_admin(message): return
-    
-    anime_name = message.text.replace('/anime', '').strip()
-    if not anime_name:
-        bot.reply_to(message, "❌ تکایە ناوی ئەنیمێیەکە بنووسە، نموونە:\n/anime One Piece")
-        return
+@bot.message_handler(func=lambda message: message.chat.id == ADMIN_ID)
+def handle_text(message):
+    if message.text == "📖 ڕێنمایی بەکارهێنان":
+        tutorial = "💡 **ڕێنمایی:**\n1. کلیک لە گەڕان بکە.\n2. ناوی ئەنیمێ بنووسە.\n3. کاتێک وێنە و دەقەکە هات، کلیک لە 'بڵاوکردنەوە' بکە تا بچێتە کەناڵ."
+        bot.send_message(message.chat.id, tutorial, parse_mode="Markdown")
 
-    msg = bot.reply_to(message, "⏳ خەریکی هێنانی زانیارییە دروستەکانم لە MyAnimeList...")
-    
-    # هێنانی زانیاری ڕاستەقینە لە Jikan API
+    elif message.text == "🔍 گەڕان بەدوای ئەنیمێ":
+        msg = bot.send_message(message.chat.id, "✏️ ناوی ئەنیمێیەکە بنووسە:")
+        bot.register_next_step_handler(msg, process_search)
+
+    elif message.text == "📅 خشتەی ئەمڕۆ":
+        bot.send_message(message.chat.id, "⏳ خەریکی هێنانی خشتەی ئەمڕۆم...")
+        process_schedule(message.chat.id)
+
+# ================= پرۆسەکان =================
+def process_search(message):
     try:
-        res = requests.get(f"https://api.jikan.moe/v4/anime?q={anime_name}&limit=1").json()
-        if not res['data']:
-            bot.edit_message_text("❌ هیچ ئەنیمێیەک بەم ناوەوە نەدۆزرایەوە.", message.chat.id, msg.message_id)
-            return
-            
+        res = requests.get(f"https://api.jikan.moe/v4/anime?q={message.text}&limit=1").json()
         anime = res['data'][0]
-        raw_data = f"""
-        Title: {anime['title']}
-        Status: {anime['status']}
-        Airing Date/Time: {anime['broadcast']['string'] if anime['broadcast']['string'] else 'Unknown'}
-        Score: {anime['score']}
-        Episodes: {anime['episodes']}
-        Synopsis: {anime['synopsis'][:300]}...
-        """
+        img = anime['images']['jpg']['large_image_url']
+        data = f"Title: {anime['title']}\nStatus: {anime['status']}\nBroadcast: {anime['broadcast']['string']}\nScore: {anime['score']}\nSynopsis: {anime['synopsis'][:300]}..."
         
-        bot.edit_message_text("🧠 خەریکی داڕشتنەوەیم بە کوردییەکی نایاب لەلایەن Gemini...", message.chat.id, msg.message_id)
-        
-        # ناردنی بۆ جیمینای بۆ وەرگێڕان و ڕێکخستن
-        kurdish_post = format_with_gemini(raw_data, "search")
-        
-        # دروستکردنی دوگمە بۆ ناردن بۆ کەناڵ
-        markup = InlineKeyboardMarkup()
-        markup.row(InlineKeyboardButton("📢 بڵاوکردنەوە لە کەناڵ", callback_data="post_channel"))
-        markup.row(InlineKeyboardButton("❌ پەشیمان بوونەوە", callback_data="cancel"))
-        
-        bot.send_message(message.chat.id, kurdish_post, reply_markup=markup)
-        bot.delete_message(message.chat.id, msg.message_id)
-        
-    except Exception as e:
-        bot.edit_message_text(f"❌ کێشەیەک ڕوویدا: {e}", message.chat.id, msg.message_id)
+        kurdish = format_with_gemini(data, "search")
+        send_preview(message.chat.id, kurdish, img)
+    except:
+        bot.send_message(message.chat.id, "❌ نەدۆزرایەوە.")
 
-# ٣. وەڵامدانەوەی دوگمەکان (کاتێک کلیک لە بڵاوکردنەوە دەکەیت)
+def process_schedule(chat_id):
+    try:
+        res = requests.get("https://api.jikan.moe/v4/schedules?filter=today&limit=10").json()
+        raw = "\n".join([f"- {a['title']}" for a in res['data']])
+        kurdish = format_with_gemini(raw, "schedule")
+        send_preview(chat_id, kurdish, None)
+    except:
+        bot.send_message(chat_id, "❌ کێشەیەک لە خشتەدا هەیە.")
+
+def send_preview(chat_id, text, img):
+    markup = InlineKeyboardMarkup()
+    markup.add(InlineKeyboardButton("📢 بڵاوکردنەوە", callback_data="post"), InlineKeyboardButton("❌ سڕینەوە", callback_data="del"))
+    
+    if img:
+        bot.send_photo(chat_id, img, caption=text, reply_markup=markup)
+    else:
+        bot.send_message(chat_id, text, reply_markup=markup)
+
 @bot.callback_query_handler(func=lambda call: True)
-def callback_query(call):
-    if call.data == "post_channel":
-        try:
+def callback(call):
+    if call.data == "post":
+        if call.message.content_type == 'photo':
+            bot.send_photo(CHANNEL_ID, call.message.photo[-1].file_id, caption=call.message.caption)
+        else:
             bot.send_message(CHANNEL_ID, call.message.text)
-            bot.answer_callback_query(call.id, "✅ بە سەرکەوتوویی لە کەناڵ پۆست کرا!")
-            bot.edit_message_reply_markup(call.message.chat.id, call.message.message_id, reply_markup=None)
-            bot.send_message(call.message.chat.id, "✅ پۆستەکە چوو بۆ کەناڵ.")
-        except Exception as e:
-            bot.answer_callback_query(call.id, "❌ هەڵە لە ناردن بۆ کەناڵ.")
-    elif call.data == "cancel":
+        bot.answer_callback_query(call.id, "✅ بڵاوکرایەوە!")
+    elif call.data == "del":
         bot.delete_message(call.message.chat.id, call.message.message_id)
-        bot.answer_callback_query(call.id, "پۆستەکە سڕایەوە.")
 
-# کارپێکردنی بۆتەکە
-print("Bot is running...")
 bot.infinity_polling()
