@@ -1,0 +1,37 @@
+var GH_TOKEN = "تۆکنە_نوێیەکەی_گیت_هەب_لێرە_دابنێ";
+var GH_REPO = "HamA12aa/Telegram-bot";
+var BOT_TOKEN = "8963794119:AAHntWTn_Rc_EUbgdhwaBYXwtwMqw_xiu2Q";
+
+function doPost(e) {
+  var contents = JSON.parse(e.postData.contents);
+  if (!contents.message) return;
+  var chat_id = contents.message.chat.id;
+  var prop = PropertiesService.getScriptProperties();
+
+  if (contents.message.video || (contents.message.document && contents.message.document.mime_type.startsWith("video"))) {
+    var vidId = contents.message.video ? contents.message.video.file_id : contents.message.document.file_id;
+    prop.setProperty('vid_' + chat_id, vidId);
+    sendMessage(chat_id, "🎥 ڤیدیۆکە وەرگیرا، ئێستا ژێرنووس بنێرە...");
+  } else if (contents.message.document && contents.message.document.file_name.endsWith(".ass")) {
+    var vidId = prop.getProperty('vid_' + chat_id);
+    if (vidId) {
+      sendMessage(chat_id, "🚀 دەستمان پێکرد! سەیری گیت هەب بکە...");
+      triggerGitHub(vidId, contents.message.document.file_id);
+      prop.deleteProperty('vid_' + chat_id);
+    } else { sendMessage(chat_id, "❌ سەرەتا ڤیدیۆ بنێرە!"); }
+  }
+}
+
+function triggerGitHub(vid, sub) {
+  var url = "https://api.github.com/repos/" + GH_REPO + "/actions/workflows/render.yml/dispatches";
+  var options = {
+    "method": "post",
+    "headers": {"Authorization": "token " + GH_TOKEN, "Accept": "application/vnd.github.v3+json"},
+    "payload": JSON.stringify({"ref": "main", "inputs": {"video_id": vid, "sub_id": sub}})
+  };
+  UrlFetchApp.fetch(url, options);
+}
+
+function sendMessage(id, text) {
+  UrlFetchApp.fetch("https://api.telegram.org/bot" + BOT_TOKEN + "/sendMessage?chat_id=" + id + "&text=" + encodeURIComponent(text));
+}
