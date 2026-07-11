@@ -1,58 +1,38 @@
 import requests
 import os
-import json
 
-# وەرگرتنی زانیارییەکان لە Secrets
+# وەرگرتنی نهێنییەکان لە گیت هەب
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 CHAT_ID = os.getenv("CHAT_ID")
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+GEMINI_KEY = os.getenv("GEMINI_API_KEY")
 
 def ask_gemini(prompt):
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={GEMINI_API_KEY}"
-    headers = {'Content-Type': 'application/json'}
-    payload = {
-        "contents": [{"parts": [{"text": prompt}]}]
-    }
-    response = requests.post(url, headers=headers, json=payload)
-    data = response.json()
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={GEMINI_KEY}"
+    payload = {"contents": [{"parts": [{"text": prompt}]}]}
+    res = requests.post(url, json=payload)
     try:
-        return data['candidates'][0]['content']['parts'][0]['text']
+        return res.json()['candidates'][0]['content']['parts'][0]['text']
     except:
-        return None
+        return "هەڵە لە دروستکردنی دەقەکە ڕوویدا."
 
-def get_anime_data():
-    # هێنانی نوێترین ئەنیمێکان لە Jikan
-    response = requests.get("https://api.jikan.moe/v4/seasons/now?limit=2")
-    animes = response.json().get('data', [])
-    context = ""
-    for anime in animes:
-        context += f"Title: {anime['title']}\nScore: {anime['score']}\nSynopsis: {anime['synopsis'][:300]}...\n\n"
-    return context
+def get_anime_news():
+    # وەرگرتنی ٢ ئەنیمێی بەناوبانگی ئێستا لە MyAnimeList (Jikan)
+    res = requests.get("https://api.jikan.moe/v4/top/anime?filter=airing&limit=2")
+    animes = res.json().get('data', [])
+    info = ""
+    for a in animes:
+        info += f"Title: {a['title']}\nScore: {a['score']}\nStory: {a['synopsis'][:200]}...\n\n"
+    return info
 
-def send_to_telegram(text):
+def send_post():
+    data = get_anime_news()
+    prompt = f"تۆ ئادمینێکی زیرەکی کەناڵی ئەنیمێی 'KURD FOREST'یت. ئەم زانیارییانەی خوارەوەم بۆ بکە بە پۆستێکی کوردی سۆرانی زۆر جوان و سەرنجڕاکێش. ئیمۆجی بەکاربهێنە و لە کۆتایی بنووسە @KURD_FOREST. زانیارییەکان:\n{data}"
+    
+    kurdish_text = ask_gemini(prompt)
+    
+    # ناردن بۆ تێلیگرام
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
-    payload = {
-        "chat_id": CHAT_ID,
-        "text": text,
-        "parse_mode": "Markdown"
-    }
-    requests.post(url, json=payload)
+    requests.post(url, json={"chat_id": CHAT_ID, "text": kurdish_text, "parse_mode": "Markdown"})
 
-# جێبەجێکردنی پرۆسەکە
-print("Fetching Anime Data...")
-anime_info = get_anime_data()
-
-prompt = f"""تۆ ئەدمینی کەناڵی 'KURD FOREST'یت. ئەم زانیارییانەی خوارەوە وەک هەواڵ و پێشنیار بە زمانی کوردی سۆرانییەکی زۆر جوان و سەرنجڕاکێش بنووسە. 
-ئیمۆجی زۆر بەکاربهێنە و لە کۆتایی بنووسە @KURD_FOREST.
-زانیارییەکان:
-{anime_info}"""
-
-print("Asking Gemini to write in Kurdish...")
-kurdish_post = ask_gemini(prompt)
-
-if kurdish_post:
-    print("Sending to Telegram...")
-    send_to_telegram(kurdish_post)
-    print("Done!")
-else:
-    print("Failed to generate content.")
+if __name__ == "__main__":
+    send_post()
